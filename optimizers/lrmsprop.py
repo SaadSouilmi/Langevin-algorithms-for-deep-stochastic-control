@@ -17,11 +17,13 @@ class LRMSprop(Optimizer):
 
     """
 
-    def __init__(self, params, lr=1e-2, sigma=1e-3, alpha=0.99, eps=1e-8, weight_decay=0, momentum=0, centered=False):
+    def __init__(self, params, lr=1e-2, sigma=0.0, alpha=0.99, eps=1e-8, weight_decay=0, momentum=0, centered=False):
         if not 0.0 <= lr:
             raise ValueError(f"Invalid learning rate: {lr}")
         if not 0.0 <= eps:
             raise ValueError(f"Invalid epsilon value: {eps}")
+        if not 0.0 <= sigma:
+            raise ValueError(f"Invalid noise std: {sigma}")
         if not 0.0 <= weight_decay:
             raise ValueError(f"Invalid weight_decay value: {weight_decay}")
         if not 0.0 <= alpha:
@@ -36,7 +38,7 @@ class LRMSprop(Optimizer):
     def step(self, closure=None):
         """Performs a single optimization step.
 
-        Arguments:
+        Args:
             closure (callable, optional): A closure that reevaluates the model
                 and returns the loss.
         """

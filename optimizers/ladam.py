@@ -21,10 +21,12 @@ class LAdam(Optimizer):
             (default: False)
     """
 
-    def __init__(self, params, lr=1e-3, sigma=1e-3, betas=(0.9, 0.999), eps=1e-8,
+    def __init__(self, params, lr=1e-3, sigma=0.0, betas=(0.9, 0.999), eps=1e-8,
                  weight_decay=0, amsgrad=False):
         if not 0.0 <= lr:
             raise ValueError(f"Invalid learning rate: {lr}")
+        if not 0.0 <= sigma:
+            raise ValueError(f"Invalid noise std: {sigma}")
         if not 0.0 <= eps:
             raise ValueError(f"Invalid epsilon value: {eps}")
         if not 0.0 <= betas[0] < 1.0:
@@ -43,7 +45,7 @@ class LAdam(Optimizer):
     def step(self, closure=None):
         """Performs a single optimization step.
 
-        Arguments:
+        Args:
             closure (callable, optional): A closure that reevaluates the model
                 and returns the loss.
         """
