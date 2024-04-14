@@ -19,7 +19,9 @@ class LAdadelta(Optimizer):
 
     """
 
-    def __init__(self, params, lr=1.0, sigma=0.0, betas=(0.9, 0.9), eps=1e-6, weight_decay=0):
+    def __init__(
+        self, params, lr=1.0, sigma=0.0, betas=(0.9, 0.9), eps=1e-6, weight_decay=0
+    ):
         if not 0.0 <= lr:
             raise ValueError(f"Invalid learning rate: {lr}")
         if not 0.0 <= sigma:
@@ -33,7 +35,9 @@ class LAdadelta(Optimizer):
         if not 0.0 <= weight_decay:
             raise ValueError(f"Invalid weight_decay value: {weight_decay}")
 
-        defaults = dict(lr=lr, sigma=sigma, betas=betas, eps=eps, weight_decay=weight_decay)
+        defaults = dict(
+            lr=lr, sigma=sigma, betas=betas, eps=eps, weight_decay=weight_decay
+        )
         super(LAdadelta, self).__init__(params, defaults)
 
     def step(self, closure=None):
@@ -48,7 +52,7 @@ class LAdadelta(Optimizer):
             loss = closure()
 
         for group in self.param_groups:
-            for p in group['params']:
+            for p in group["params"]:
                 if p.grad is None:
                     continue
 
@@ -56,33 +60,38 @@ class LAdadelta(Optimizer):
 
                 # State initialization
                 if len(state) == 0:
-                    state['step'] = 0
-                    state['square_avg'] = torch.zeros_like(p.data, memory_format=torch.preserve_format)
-                    state['acc_delta'] = torch.zeros_like(p.data, memory_format=torch.preserve_format)
+                    state["step"] = 0
+                    state["square_avg"] = torch.zeros_like(
+                        p.data, memory_format=torch.preserve_format
+                    )
+                    state["acc_delta"] = torch.zeros_like(
+                        p.data, memory_format=torch.preserve_format
+                    )
 
-                square_avg, acc_delta = state['square_avg'], state['acc_delta']
-                eps = group['eps']
-                beta1, beta2 = group['betas']
+                square_avg, acc_delta = state["square_avg"], state["acc_delta"]
+                eps = group["eps"]
+                beta1, beta2 = group["betas"]
 
-                state['step'] += 1
+                state["step"] += 1
 
                 # Compute gradient and preconditionner
                 grad = p.grad.data
                 if grad.is_sparse:
-                    raise RuntimeError('Adadelta does not support sparse gradients')
-                if group['weight_decay'] != 0:
-                    grad = grad.add(group['weight_decay'], p.data) # add gradient of L2 penalty
+                    raise RuntimeError("Adadelta does not support sparse gradients")
+                if group["weight_decay"] != 0:
+                    grad = grad.add(
+                        group["weight_decay"], p.data
+                    )  # add gradient of L2 penalty
 
-                square_avg.mul_(beta1).addcmul_(grad, grad, value=1-beta1)
+                square_avg.mul_(beta1).addcmul_(grad, grad, value=1 - beta1)
                 std = square_avg.add(eps).sqrt_()
                 preconditionner = acc_delta.add(eps).sqrt_().div_(std)
                 delta = grad.mul(preconditionner)
-                acc_delta.mul_(beta2).addcmul_(delta, delta, value=1-beta2)
+                acc_delta.mul_(beta2).addcmul_(delta, delta, value=1 - beta2)
 
                 # Compute noise
-                noise_std = group['sigma'] * (preconditionner.mul(group['lr'])).sqrt()
-                noise = p.data.new(p.data.size()).normal_(mean=0,
-                                                          std=1) * noise_std
+                noise_std = group["sigma"] * (preconditionner.mul(group["lr"])).sqrt()
+                noise = p.data.new(p.data.size()).normal_(mean=0, std=1) * noise_std
 
                 # Perform gradient step
                 p.data.add_(delta, alpha=-group["lr"])

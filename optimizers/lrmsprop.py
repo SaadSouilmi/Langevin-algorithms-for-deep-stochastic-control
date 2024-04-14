@@ -17,7 +17,17 @@ class LRMSprop(Optimizer):
 
     """
 
-    def __init__(self, params, lr=1e-2, sigma=0.0, alpha=0.99, eps=1e-8, weight_decay=0, momentum=0, centered=False):
+    def __init__(
+        self,
+        params,
+        lr=1e-2,
+        sigma=0.0,
+        alpha=0.99,
+        eps=1e-8,
+        weight_decay=0,
+        momentum=0,
+        centered=False,
+    ):
         if not 0.0 <= lr:
             raise ValueError(f"Invalid learning rate: {lr}")
         if not 0.0 <= eps:
@@ -29,7 +39,9 @@ class LRMSprop(Optimizer):
         if not 0.0 <= alpha:
             raise ValueError(f"Invalid alpha value: {alpha}")
 
-        defaults = dict(lr=lr, sigma=sigma, alpha=alpha, eps=eps, weight_decay=weight_decay)
+        defaults = dict(
+            lr=lr, sigma=sigma, alpha=alpha, eps=eps, weight_decay=weight_decay
+        )
         super(LRMSprop, self).__init__(params, defaults)
 
     def __setstate__(self, state):
@@ -47,41 +59,44 @@ class LRMSprop(Optimizer):
             loss = closure()
 
         for group in self.param_groups:
-            for p in group['params']:
+            for p in group["params"]:
                 if p.grad is None:
                     continue
-                
+
                 state = self.state[p]
 
                 # State initialization
                 if len(state) == 0:
-                    state['step'] = 0
-                    state['square_avg'] = torch.zeros_like(p.data, memory_format=torch.preserve_format)
+                    state["step"] = 0
+                    state["square_avg"] = torch.zeros_like(
+                        p.data, memory_format=torch.preserve_format
+                    )
 
                 # Compute gradient and preconditionner
                 grad = p.grad.data
                 if grad.is_sparse:
-                    raise RuntimeError('RMSprop does not support sparse gradients')
-                if group['weight_decay'] != 0:
-                    grad = grad.add(p.data, alpha=group['weight_decay']) # add gradient of L2 penalty
+                    raise RuntimeError("RMSprop does not support sparse gradients")
+                if group["weight_decay"] != 0:
+                    grad = grad.add(
+                        p.data, alpha=group["weight_decay"]
+                    )  # add gradient of L2 penalty
 
-                square_avg = state['square_avg']
-                alpha = group['alpha']
+                square_avg = state["square_avg"]
+                alpha = group["alpha"]
 
-                state['step'] += 1
+                state["step"] += 1
 
-                square_avg.mul_(alpha).addcmul_(grad, grad, value=1-alpha)
+                square_avg.mul_(alpha).addcmul_(grad, grad, value=1 - alpha)
 
-                avg = square_avg.sqrt().add_(group['eps'])
+                avg = square_avg.sqrt().add_(group["eps"])
                 preconditionner = torch.div(1, avg)
-                
+
                 # Compute noise
-                noise_std = group['sigma'] * (preconditionner.mul(group['lr'])).sqrt()
-                noise = p.data.new(p.data.size()).normal_(mean=0,
-                                                          std=1) * noise_std
-                
+                noise_std = group["sigma"] * (preconditionner.mul(group["lr"])).sqrt()
+                noise = p.data.new(p.data.size()).normal_(mean=0, std=1) * noise_std
+
                 # Perform gradient step
-                p.data.add_(grad.mul(preconditionner), alpha=-group['lr'])
+                p.data.add_(grad.mul(preconditionner), alpha=-group["lr"])
 
                 # Perform noise step
                 p.data.add_(noise)
