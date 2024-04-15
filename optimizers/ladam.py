@@ -120,11 +120,11 @@ class LAdam(Optimizer):
                     # Maintains the maximum of all 2nd moment running avg. till now
                     torch.max(max_exp_avg_sq, exp_avg_sq, out=max_exp_avg_sq)
                     # Use the max. for normalizing running avg. of gradient
-                    denom = (max_exp_avg_sq.sqrt() / math.sqrt(bias_correction2)).add_(
+                    denom = (max_exp_avg_sq.sqrt() / math.sqrt(bias_correction2)).add(
                         group["eps"]
                     )
                 else:
-                    denom = (exp_avg_sq.sqrt() / math.sqrt(bias_correction2)).add_(
+                    denom = (exp_avg_sq.sqrt() / math.sqrt(bias_correction2)).add(
                         group["eps"]
                     )
 

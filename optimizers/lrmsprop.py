@@ -23,10 +23,8 @@ class LRMSprop(Optimizer):
         lr=1e-2,
         sigma=0.0,
         alpha=0.99,
-        eps=1e-8,
+        eps=1e-6,
         weight_decay=0,
-        momentum=0,
-        centered=False,
     ):
         if not 0.0 <= lr:
             raise ValueError(f"Invalid learning rate: {lr}")
@@ -83,12 +81,13 @@ class LRMSprop(Optimizer):
 
                 square_avg = state["square_avg"]
                 alpha = group["alpha"]
+                eps = group["eps"]
 
                 state["step"] += 1
 
                 square_avg.mul_(alpha).addcmul_(grad, grad, value=1 - alpha)
 
-                avg = square_avg.sqrt().add_(group["eps"])
+                avg = square_avg.sqrt().add(eps)
                 preconditionner = torch.div(1, avg)
 
                 # Compute noise

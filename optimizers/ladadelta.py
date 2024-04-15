@@ -20,7 +20,7 @@ class LAdadelta(Optimizer):
     """
 
     def __init__(
-        self, params, lr=1.0, sigma=0.0, betas=(0.9, 0.9), eps=1e-6, weight_decay=0
+        self, params, lr=1.0, sigma=0.0, betas=(0.95, 0.95), eps=1e-6, weight_decay=0
     ):
         if not 0.0 <= lr:
             raise ValueError(f"Invalid learning rate: {lr}")
@@ -84,19 +84,19 @@ class LAdadelta(Optimizer):
                     )  # add gradient of L2 penalty
 
                 square_avg.mul_(beta1).addcmul_(grad, grad, value=1 - beta1)
-                std = square_avg.add(eps).sqrt_()
-                preconditionner = acc_delta.add(eps).sqrt_().div_(std)
-                delta = grad.mul(preconditionner)
-                acc_delta.mul_(beta2).addcmul_(delta, delta, value=1 - beta2)
+                std = square_avg.add(eps).sqrt()
+                preconditionner = acc_delta.add(eps).sqrt().div(std)
+                # delta = grad.mul(preconditionner)
+                # acc_delta.mul_(beta2).addcmul_(delta, delta, value=1 - beta2)
 
                 # Compute noise
                 noise_std = group["sigma"] * (preconditionner.mul(group["lr"])).sqrt()
                 noise = p.data.new(p.data.size()).normal_(mean=0, std=1) * noise_std
 
                 # Perform gradient step
-                p.data.add_(delta, alpha=-group["lr"])
+                delta = -group["lr"] * grad.mul(preconditionner) + noise
+                p.data.add_(delta)
 
-                # Perform noise step
-                p.data.add_(noise)
+                acc_delta.mul_(beta2).addcmul_(delta, delta, value=1 - beta2)
 
         return loss

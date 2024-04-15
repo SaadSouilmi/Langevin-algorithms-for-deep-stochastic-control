@@ -51,11 +51,6 @@ class DeepControledDiffusion(ABC):
                 control.eval()
 
     @abstractmethod
-    def sample_start(self):
-        """Abstract method that samples the starting condition of the diffusion"""
-        pass
-
-    @abstractmethod
     def sample_traj(self):
         """Abstract method that samples trajectories of the diffusion"""
         pass
