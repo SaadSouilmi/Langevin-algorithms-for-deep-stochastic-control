@@ -1,7 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import Union
 import torch
-from training.network import MLP
 
 
 class DeepControledDiffusion(ABC):
@@ -22,33 +21,20 @@ class DeepControledDiffusion(ABC):
         self.h = T / N_euler
         self.dim = dim
 
-    def set_control(self, control: dict, multiple_controls: bool = False) -> None:
-        """Function that sets the control
-        Args:
-            - control: dictionnary containing the config of the control
-            - mutiple_controls: boolean determining whether we use mutiple controls or not
-        """
-        self.multiple_controls = multiple_controls
-        if multiple_controls:
-            self.control = [MLP(**control) for k in range(self.N_euler + 1)]
-        else:
-            self.control = MLP(**control)
+    @abstractmethod
+    def set_control(self):
+        """Abstract method that"""
+        pass
 
-    def train_mode(self) -> None:
-        """Sets the control to train mode"""
-        if not self.multiple_controls:
-            self.control.train()
-        else:
-            for control in self.control:
-                control.train
+    @abstractmethod
+    def train_mode(self):
+        """Abstract method that sets the controls to train mode"""
+        pass
 
+    @abstractmethod
     def eval_mode(self) -> None:
-        """Sets the control to eval mode"""
-        if not self.multiple_controls:
-            self.control.eval()
-        else:
-            for control in self.control:
-                control.eval()
+        """Abstract method that sets the controls to eval mode"""
+        pass
 
     @abstractmethod
     def sample_traj(self):

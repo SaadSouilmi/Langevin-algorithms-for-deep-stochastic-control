@@ -2,6 +2,7 @@ from .base import DeepControledDiffusion
 import torch
 import math
 import tqdm
+from training.network import MLP
 
 
 class Fishing(DeepControledDiffusion):
@@ -40,6 +41,36 @@ class Fishing(DeepControledDiffusion):
         self.init_lbound = init_lbound
         self.init_ubound = init_ubound
         self.name = "Fishing"
+
+    def set_control(
+        self, control_config: dict, multiple_controls: bool = False
+    ) -> None:
+        """Function that sets the control
+        Args:
+            - control_config: dictionnary containing the config of the control
+            - mutiple_controls: boolean determining whether we use mutiple controls or not
+        """
+        self.multiple_controls = multiple_controls
+        if multiple_controls:
+            self.control = [MLP(**control_config) for k in range(self.N_euler + 1)]
+        else:
+            self.control = MLP(**control_config)
+
+    def train_mode(self) -> None:
+        """Sets the control to train mode"""
+        if not self.multiple_controls:
+            self.control.train()
+        else:
+            for control in self.control:
+                control.train()
+
+    def eval_mode(self) -> None:
+        """Sets the control to eval mode"""
+        if not self.multiple_controls:
+            self.control.eval()
+        else:
+            for control in self.control:
+                control.eval()
 
     def sample_start(
         self, batch_size: int, device: torch.device = torch.device("cpu")

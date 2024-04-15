@@ -33,7 +33,7 @@ def train(
 
             model.train_mode()
             for batch in range(train_size):
-                if not model.multiple_controls:
+                if not isinstance(optimizer, list):
                     optimizer.zero_grad()
                 else:
                     for opt in optimizer:
@@ -41,7 +41,7 @@ def train(
                 J = model.objective(train_batch)
                 loss = J.mean()
                 loss.backward()
-                if not model.multiple_controls:
+                if not isinstance(optimizer, list):
                     optimizer.step()
                 else:
                     for opt in optimizer:
@@ -50,13 +50,15 @@ def train(
                 running_train_loss += loss.item()
 
             train_losses.append(running_train_loss / train_size)
-            if not model.multiple_controls:
+            if not isinstance(scheduler, list):
                 scheduler.step()
                 lr = scheduler.get_last_lr()[0]
+                sigma = scheduler.get_last_sigma()
             else:
                 for sched in scheduler:
                     sched.step()
                 lr = sched.get_last_lr()[0]
+                sigma = sched.get_last_sigma()
 
             model.eval_mode()
             with torch.no_grad():
@@ -78,7 +80,7 @@ def train(
                 )
 
             progress_bar.set_description(
-                f"{model.name}: Epoch {epoch}, {optimizer_name}, lr={lr:.5f}, train={running_train_loss/train_size:.3f}, test={running_test_loss/test_size:.3f}"
+                f"{model.name}: Epoch {epoch}, {optimizer_name}, lr={lr:.5f}, sigma={sigma}, train={running_train_loss/train_size:.3f}, test={running_test_loss/test_size:.3f}"
             )
             progress_bar.update(1)
 
