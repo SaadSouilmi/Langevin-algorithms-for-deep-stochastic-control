@@ -125,21 +125,22 @@ class DeepHedging(DeepControledDiffusion):
                     S1 = S1_buf[:, k, :]
                     S2 = S2_buf[:, k, :]
                     V = V_buf[:, k, :]
+                    u = u_buf[:, k, :]
                     # Compute control at t_k
                     if self.multiple_controls:
                         # Compute u_k(log(S^1_{t_k}), V_{t_k}, u_{t_{k-1}})
-                        u = self.control[k](
-                            torch.concat((torch.log(S1_buf), V_buf, u_buf), dim=1)
+                        u_buf[:, k + 1, :] = self.control[k](
+                            torch.concat((torch.log(S1), V, u), dim=1)
                         )
                     else:
                         # Compute u(t_k, u_k(log(S^1_{t_k}), V_{t_k}, u_{t_{k-1}})
-                        u = self.control(
+                        u_buf[:, k + 1, :] = self.control(
                             torch.concat(
                                 (
                                     k * self.h * torch.ones((batch_size, 1)).to(device),
-                                    torch.log(S1_buf),
-                                    V_buf,
-                                    u_buf,
+                                    torch.log(S1),
+                                    V,
+                                    u,
                                 ),
                                 dim=1,
                             )
@@ -166,7 +167,9 @@ class DeepHedging(DeepControledDiffusion):
                     S2_buf[:, k + 1, :] = V_int + self.L(
                         (k + 1) * self.h, V_buf[:, k + 1, :]
                     )
-                    u_buf[:, k + 1, :] = u
+
+                    # Update progress bar
+                    progress_bar.update(1)
 
         return S1_buf, S2_buf, V_buf, u_buf
 

@@ -1,6 +1,8 @@
 import torch
 import math
 import tqdm
+import matplotlib.pyplot as plt
+import numpy as np
 
 
 def train(
@@ -85,3 +87,92 @@ def train(
             progress_bar.update(1)
 
     return train_losses, test_losses, test_ci_radius
+
+
+def plot_langevin_loss(
+    test_loss,
+    test_ci,
+    test_loss_langevin,
+    test_ci_langevin,
+    test_loss_llangevin=None,
+    test_ci_llangevin=None,
+    ll=10,
+    name="SGD",
+    xlim: tuple[float, float] = None,
+    ylim: tuple[float, float] = None,
+    save_fig=None,
+):
+    fig = plt.figure(figsize=(7, 5))
+    plt.plot(
+        np.arange(len(test_loss)), test_loss, marker="o", mec="k", ms=5, label=name
+    )
+    plt.fill_between(
+        np.arange(len(test_loss)),
+        np.array(test_loss) - np.array(test_ci),
+        np.array(test_loss) + np.array(test_ci),
+        alpha=0.2,
+    )
+    plt.plot(
+        np.arange(len(test_loss_langevin)),
+        test_loss_langevin,
+        marker="o",
+        mec="k",
+        ms=5,
+        label=f"L{name}",
+    )
+    plt.fill_between(
+        np.arange(len(test_loss_langevin)),
+        np.array(test_loss_langevin) - np.array(test_ci_langevin),
+        np.array(test_loss_langevin) + np.array(test_ci_langevin),
+        alpha=0.2,
+    )
+    if test_loss_llangevin:
+        if isinstance(test_loss_llangevin[0], list):
+            if not isinstance(test_ci_llangevin[0], list) or not isinstance(ll, list):
+                raise ValueError("Expected a list of test_ci_llangevin and ll")
+            for test_loss_ll, test_ci_ll, ll_rate in zip(
+                test_loss_llangevin, test_ci_llangevin, ll
+            ):
+                plt.plot(
+                    np.arange(len(test_loss_ll)),
+                    test_loss_ll,
+                    marker="o",
+                    mec="k",
+                    ms=5,
+                    label=f"LL{name}-{ll_rate}%",
+                )
+                plt.fill_between(
+                    np.arange(len(test_loss_ll)),
+                    np.array(test_loss_ll) - np.array(test_ci_ll),
+                    np.array(test_loss_ll) + np.array(test_ci_ll),
+                    alpha=0.2,
+                )
+        else:
+            plt.plot(
+                np.arange(len(test_loss_llangevin)),
+                test_loss_llangevin,
+                marker="o",
+                mec="k",
+                ms=5,
+                label=f"LL{name}-{ll}%",
+            )
+            plt.fill_between(
+                np.arange(len(test_loss_llangevin)),
+                np.array(test_loss_llangevin) - np.array(test_ci_llangevin),
+                np.array(test_loss_llangevin) + np.array(test_ci_llangevin),
+                alpha=0.2,
+            )
+
+    plt.xlabel("Epochs")
+    plt.ylabel(r"$J(u_\theta)$")
+    if xlim:
+        plt.xlim(xlim)
+    if ylim:
+        plt.ylim(ylim)
+    legend = plt.legend(fancybox=True, edgecolor="k", loc=0)
+    legend.get_frame().set_linewidth(0.5)
+
+    if save_fig:
+        fig.savefig(save_fig)
+    plt.show()
+    plt.close()
