@@ -80,14 +80,12 @@ class LAdadelta(Optimizer):
                     raise RuntimeError("Adadelta does not support sparse gradients")
                 if group["weight_decay"] != 0:
                     grad = grad.add(
-                        group["weight_decay"], p.data
+                        p.data, alpha=group["weight_decay"]
                     )  # add gradient of L2 penalty
 
                 square_avg.mul_(beta1).addcmul_(grad, grad, value=1 - beta1)
                 std = square_avg.add(eps).sqrt()
                 preconditionner = acc_delta.add(eps).sqrt().div(std)
-                # delta = grad.mul(preconditionner)
-                # acc_delta.mul_(beta2).addcmul_(delta, delta, value=1 - beta2)
 
                 # Compute noise
                 noise_std = group["sigma"] * (preconditionner.mul(group["lr"])).sqrt()

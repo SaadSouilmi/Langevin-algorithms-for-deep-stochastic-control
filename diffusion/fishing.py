@@ -95,7 +95,7 @@ class Fishing(DeepControledDiffusion):
         device: torch.device = torch.device("cpu"),
         disable_tqdm: bool = True,
     ) -> tuple[torch.Tensor, torch.Tensor]:
-        """Samples X_0 from a gaussian clipped to [lbound, ubound]
+        """Samples trajectory along with the corresponding control
         Args:
             - batch_size: number of trajectories to sample
             - device: torch device

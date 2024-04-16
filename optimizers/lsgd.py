@@ -1,10 +1,11 @@
 import torch
 from torch.optim.optimizer import Optimizer, required
+import math
 
 
 class LSGD(Optimizer):
-    """Implements LSGD (optionally with momentum) based
-    on the pytorch implementation of SGD.
+    """Implements LSGD based on the pytorch implementation of SGD.
+    In this version of the algorithm, the noise is isotropic.
 
     Args:
         params (iterable): iterable of parameters to optimize or dicts defining

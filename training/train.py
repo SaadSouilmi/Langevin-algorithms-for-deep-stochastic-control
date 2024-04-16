@@ -82,7 +82,7 @@ def train(
                 )
 
             progress_bar.set_description(
-                f"{model.name}: Epoch {epoch}, {optimizer_name}, lr={lr:.5f}, sigma={sigma}, train={running_train_loss/train_size:.3f}, test={running_test_loss/test_size:.3f}"
+                f"{model.name}: Epoch {epoch}, {optimizer_name}, lr={lr:.3f}, sigma={sigma}, train={running_train_loss/train_size:.3f}, test={running_test_loss/test_size:.3f}"
             )
             progress_bar.update(1)
 
@@ -104,7 +104,7 @@ def plot_langevin_loss(
 ):
     fig = plt.figure(figsize=(7, 5))
     plt.plot(
-        np.arange(len(test_loss)), test_loss, marker="o", mec="k", ms=5, label=name
+        np.arange(len(test_loss)), test_loss, marker="o", mec="k", ms=3, label=name
     )
     plt.fill_between(
         np.arange(len(test_loss)),
@@ -117,7 +117,7 @@ def plot_langevin_loss(
         test_loss_langevin,
         marker="o",
         mec="k",
-        ms=5,
+        ms=3,
         label=f"L{name}",
     )
     plt.fill_between(
@@ -138,7 +138,7 @@ def plot_langevin_loss(
                     test_loss_ll,
                     marker="o",
                     mec="k",
-                    ms=5,
+                    ms=3,
                     label=f"LL{name}-{ll_rate}%",
                 )
                 plt.fill_between(
@@ -153,7 +153,7 @@ def plot_langevin_loss(
                 test_loss_llangevin,
                 marker="o",
                 mec="k",
-                ms=5,
+                ms=3,
                 label=f"LL{name}-{ll}%",
             )
             plt.fill_between(

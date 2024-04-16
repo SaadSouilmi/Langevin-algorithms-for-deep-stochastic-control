@@ -11,6 +11,7 @@ class MLP(nn.Module):
         activation=nn.ReLU(),
         normalization=None,
         out_transform=None,
+        dropout=None,
     ):
         super(MLP, self).__init__()
         self.input_layer = nn.Linear(input_dim, hidden_dim)
@@ -26,11 +27,18 @@ class MLP(nn.Module):
         else:
             self.normalization = None
         self.out_transform = out_transform
+        if dropout:
+            self.dropout = nn.Dropout(p=dropout)
+        else:
+            self.dropout = None
 
     def forward(self, x):
         x = self.activation(self.input_layer(x))
         for layer in self.hidden_layers:
-            x = self.activation(layer(x))
+            x = layer(x)
+            if self.dropout is not None:
+                x = self.dropout(x)
+            x = self.activation(x)
             if self.normalization is not None:
                 x = self.normalization(x)
         x = self.output_layer(x)
