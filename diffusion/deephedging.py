@@ -52,6 +52,9 @@ class DeepHedging(DeepControledDiffusion):
         else:
             self.control = MLP(**control_config)
         self.w = torch.nn.Linear(1, 1, bias=False)
+        # Initialize w to zero
+        with torch.no_grad():
+            self.w.weight.fill_(0)
 
     def train_mode(self) -> None:
         """Sets the control to train mode"""
