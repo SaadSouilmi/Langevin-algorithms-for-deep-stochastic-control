@@ -97,7 +97,7 @@ class APLSGD(Optimizer):
         params,
         lr=required,
         sigma=required,
-        momentum=0,
+        momentum=0.9,
         dampening=0,
         weight_decay=0,
         nesterov=False,

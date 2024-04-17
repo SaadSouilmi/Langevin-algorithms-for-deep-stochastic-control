@@ -7,6 +7,8 @@ torch.backends.cudnn.benchmark = False
 
 
 class MLP(nn.Module):
+    """This class creates the multi layer perceptrons used for the controls"""
+
     def __init__(
         self,
         input_dim: int,
@@ -20,7 +22,20 @@ class MLP(nn.Module):
         initialization: str = "normal",
         seed: int = 42,
         sigma: float = 0.1,
-    ):
+    ) -> None:
+        """Args:
+        - input_dim: dimension of the input
+        - output_dim: dimension of the output
+        - depth: depth of the network
+        - hidden_dim: dimension of the hidden layers
+        - activation: activation function
+        - normalization: whether to introduce batch or layer normalization
+        - out_transform: optionnal transform to apply to the output
+        - dropout: dropout rate
+        - initialization: weights initialization method
+        - seed: random generator seed for weights initialization
+        - sigma: std of normal distribution for normal initialization
+        """
         super(MLP, self).__init__()
 
         # Initialize random generator
@@ -65,7 +80,13 @@ class MLP(nn.Module):
                     "Invalid value of initialization, expected 'normal' or 'zero'."
                 )
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """This function implements the forward pass of the network
+        Args:
+            - x: input
+        Returns:
+            - torch.Tensor: network output"""
+
         x = self.activation(self.input_layer(x))
         for layer in self.hidden_layers:
             x = layer(x)
