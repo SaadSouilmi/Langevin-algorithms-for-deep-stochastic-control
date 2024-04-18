@@ -52,17 +52,27 @@ def train(
             running_test_loss = 0.0
             running_test_var = 0.0
 
+            # Train loop
             model.train_mode()
             for batch in range(train_size):
-                if not isinstance(optimizer, list):
+                # Reset gradients to zero
+                if not isinstance(
+                    optimizer, list
+                ):  # Check wheter we have one or multiple controls
                     optimizer.zero_grad()
                 else:
                     for opt in optimizer:
                         opt.zero_grad()
+
+                # Compute the loss over the batch
                 J = model.objective(train_batch)
                 loss = J.mean()
                 loss.backward()
-                if not isinstance(optimizer, list):
+
+                # Perform gradient step
+                if not isinstance(
+                    optimizer, list
+                ):  # Check wheter we have one or multiple controls
                     optimizer.step()
                 else:
                     for opt in optimizer:
@@ -70,8 +80,13 @@ def train(
 
                 running_train_loss += loss.item()
 
+            # Save the training loss value
             train_losses.append(running_train_loss / train_size)
-            if not isinstance(scheduler, list):
+
+            # Perform a schedule step
+            if not isinstance(
+                scheduler, list
+            ):  # Check wheter we have one or multiple controls
                 scheduler.step()
                 lr = scheduler.get_last_lr()[0]
                 sigma = scheduler.get_last_sigma()
@@ -81,14 +96,16 @@ def train(
                 lr = sched.get_last_lr()[0]
                 sigma = sched.get_last_sigma()
 
+            # Test loop
             model.eval_mode()
             with torch.no_grad():
                 for batch in range(test_size):
+                    # Compute running loss and variance
                     J = model.objective(test_batch)
-
                     running_test_loss += J.mean().item()
                     running_test_var += J.var().item()
 
+                # Save training loss and ci_radius value
                 test_losses.append(running_test_loss / test_size)
                 test_ci_radius.append(
                     1.96
@@ -100,6 +117,7 @@ def train(
                     / math.sqrt(test_size * test_batch)
                 )
 
+            # Update progress bar
             progress_bar.set_description(
                 f"{model.name}: Epoch {epoch}, {optimizer_name}, lr={lr:.3f}, sigma={sigma[0]:.3f}, train={running_train_loss/train_size:.3f}, test={running_test_loss/test_size:.3f}"
             )
