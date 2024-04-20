@@ -67,7 +67,7 @@ class LSGD(Optimizer):
                     d_p.add_(p.data, alpha=weight_decay)  # add gradient of L2 penalty
 
                 # Compute the noise
-                noise_std = group["sigma"] * torch.Tensor([group["lr"]]).sqrt()
+                noise_std = group["sigma"] * math.sqrt(group["lr"])
                 noise = p.data.new(p.data.size()).normal_(mean=0, std=1) * noise_std
 
                 # Perform gradient step
