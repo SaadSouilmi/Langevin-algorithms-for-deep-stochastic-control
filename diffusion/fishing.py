@@ -25,6 +25,7 @@ class Fishing(DeepControledDiffusion):
         init_std: float = 0.5,
         init_lbound: float = 0.2,
         init_ubound: float = 2,
+        device: torch.device = torch.device("cpu"),
     ) -> None:
 
         super().__init__(T, N_euler, dim)
@@ -40,10 +41,13 @@ class Fishing(DeepControledDiffusion):
         self.init_std = init_std
         self.init_lbound = init_lbound
         self.init_ubound = init_ubound
+        self.device = device
         self.name = "Fishing"
 
     def set_control(
-        self, control_config: dict, multiple_controls: bool = False
+        self,
+        control_config: dict,
+        multiple_controls: bool = False,
     ) -> None:
         """Function that sets the control
         Args:
@@ -52,9 +56,11 @@ class Fishing(DeepControledDiffusion):
         """
         self.multiple_controls = multiple_controls
         if multiple_controls:
-            self.control = [MLP(**control_config) for k in range(self.N_euler + 1)]
+            self.control = [
+                MLP(**control_config).to(self.device) for k in range(self.N_euler + 1)
+            ]
         else:
-            self.control = MLP(**control_config)
+            self.control = MLP(**control_config).to(self.device)
 
     def train_mode(self) -> None:
         """Sets the control to train mode"""
@@ -73,18 +79,18 @@ class Fishing(DeepControledDiffusion):
                 control.eval()
 
     def sample_start(
-        self, batch_size: int, device: torch.device = torch.device("cpu")
+        self,
+        batch_size: int,
     ) -> torch.Tensor:
         """Samples X_0 from a gaussian clipped to [lbound, ubound]
         Args:
-            - batch_size: number of initial conditions to sample
-            - device: torch device"""
+            - batch_size: number of initial conditions to sample"""
         # broadcast the mean tensor and cast to device
-        batched_mean = (
-            self.init_mean * torch.ones((batch_size, len(self.init_mean)))
-        ).to(device)
+        batched_mean = self.init_mean * torch.ones(
+            (batch_size, len(self.init_mean))
+        ).to(self.device)
         return torch.clamp(
-            torch.normal(batched_mean, std=self.init_std),
+            torch.normal(batched_mean, std=self.init_std).to(self.device),
             min=self.init_lbound,
             max=self.init_ubound,
         )
@@ -92,13 +98,11 @@ class Fishing(DeepControledDiffusion):
     def sample_traj(
         self,
         batch_size: int = 1,
-        device: torch.device = torch.device("cpu"),
         disable_tqdm: bool = True,
     ) -> tuple[torch.Tensor, torch.Tensor]:
         """Samples trajectory along with the corresponding control
         Args:
             - batch_size: number of trajectories to sample
-            - device: torch device
             - disable_tqdm: whether to disable the progress bar or not
         Returns:
             - tuple[torch.Tensor, torch.Tensor]: tuple containing trajectory of X and corresponding control u
@@ -106,18 +110,18 @@ class Fishing(DeepControledDiffusion):
 
         with torch.no_grad():
             # Initialise buffers for trajectory and control
-            X_buf = torch.ones((batch_size, self.N_euler + 1, self.dim)).to(device)
-            u_buf = torch.ones((batch_size, self.N_euler + 1, self.dim)).to(device)
+            X_buf = torch.ones((batch_size, self.N_euler + 1, self.dim)).to(self.device)
+            u_buf = torch.ones((batch_size, self.N_euler + 1, self.dim)).to(self.device)
 
             # Sample X_0
-            X_buf[:, 0, :] = self.sample_start(batch_size, device)
+            X_buf[:, 0, :] = self.sample_start(batch_size)
 
             # Euler Scheme
             with tqdm.tqdm(
                 total=self.N_euler,
                 position=0,
                 leave=True,
-                desc=f"Sampling trajectories on {device} batch size = {batch_size}",
+                desc=f"Sampling trajectories on {self.device} batch size = {batch_size}",
                 disable=disable_tqdm,
             ) as progress_bar:
                 for k in range(self.N_euler):
@@ -132,7 +136,9 @@ class Fishing(DeepControledDiffusion):
                         u = self.control(
                             torch.concat(
                                 (
-                                    k * self.h * torch.ones((batch_size, 1)).to(device),
+                                    k
+                                    * self.h
+                                    * torch.ones((batch_size, 1)).to(self.device),
                                     X,
                                 ),
                                 dim=1,
@@ -146,7 +152,7 @@ class Fishing(DeepControledDiffusion):
                         math.sqrt(self.h)
                         * X
                         * torch.normal(torch.zeros_like(X))
-                        .to(device)
+                        .to(self.device)
                         .matmul(self.sigma_t)
                     )
                     # Update buffers
@@ -165,7 +171,12 @@ class Fishing(DeepControledDiffusion):
                 # Compute u(t_N, X_tN)
                 u = self.control(
                     torch.concat(
-                        ((k + 1) * self.h * torch.ones((batch_size, 1)).to(device), X),
+                        (
+                            (k + 1)
+                            * self.h
+                            * torch.ones((batch_size, 1)).to(self.device),
+                            X,
+                        ),
                         dim=1,
                     )
                 )
@@ -177,26 +188,24 @@ class Fishing(DeepControledDiffusion):
     def objective(
         self,
         batch_size: int = 1,
-        device: torch.device = torch.device("cpu"),
         disable_tqdm: bool = True,
     ) -> torch.Tensor:
         """Computes the control objective J
         Args:
             - batch_size: number of trajectories to sample
-            - device: torch device
             - disable_tqdm: whether to disable the progress bar or not
         Returns:
             - torch.Tensor: tensor J"""
         # Initialize J
-        J = torch.zeros((batch_size, 1)).to(device)
+        J = torch.zeros((batch_size, 1)).to(self.device)
         # Initialize X_0
-        X_buf = self.sample_start(batch_size, device)
+        X_buf = self.sample_start(batch_size)
         # Initialize Control
         if not self.multiple_controls:
             # Compute u(0, X_0)
             u_buf = self.control(
                 torch.concat(
-                    (torch.zeros((batch_size, 1)).to(device), X_buf),
+                    (torch.zeros((batch_size, 1)).to(self.device), X_buf),
                     dim=1,
                 )
             )
@@ -211,7 +220,7 @@ class Fishing(DeepControledDiffusion):
             total=self.N_euler,
             position=0,
             leave=True,
-            desc=f"Sampling trajectories on {device} batch size = {batch_size}",
+            desc=f"Sampling trajectories on {self.device} batch size = {batch_size}",
             disable=disable_tqdm,
         ) as progress_bar:
             for k in range(self.N_euler):
@@ -220,7 +229,7 @@ class Fishing(DeepControledDiffusion):
                     math.sqrt(self.h)
                     * X_buf
                     * torch.normal(torch.zeros_like(X_buf))
-                    .to(device)
+                    .to(self.device)
                     .matmul(self.sigma_t)
                 )
                 X = X_buf + drift + noise
@@ -235,7 +244,7 @@ class Fishing(DeepControledDiffusion):
                             (
                                 (k + 1)
                                 * self.h
-                                * torch.ones((batch_size, 1)).to(device),
+                                * torch.ones((batch_size, 1)).to(self.device),
                                 X,
                             ),
                             dim=1,

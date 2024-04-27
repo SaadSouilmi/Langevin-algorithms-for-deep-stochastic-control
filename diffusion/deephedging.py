@@ -24,6 +24,7 @@ class DeepHedging(DeepControledDiffusion):
         S_0: torch.Tensor = torch.ones(1),
         V_0: torch.Tensor = 0.1 * torch.ones(1),
         epsilon: float = 1e-5,
+        device: torch.device = torch.device("cpu"),
     ) -> None:
         super().__init__(T, N_euler, dim)
         self.ell = ell
@@ -36,22 +37,28 @@ class DeepHedging(DeepControledDiffusion):
         self.S_0 = S_0
         self.V_0 = V_0
         self.epsilon = epsilon
+        self.device = device
         self.name = "Deep hedging"
 
     def set_control(
-        self, control_config: dict, multiple_controls: bool = False
+        self,
+        control_config: dict,
+        multiple_controls: bool = False,
     ) -> None:
         """Function that sets the control
         Args:
             - control_config: dictionnary containing the config of the control
             - mutiple_controls: boolean determining whether we use mutiple controls or not
+            - device: torch device
         """
         self.multiple_controls = multiple_controls
         if multiple_controls:
-            self.control = [MLP(**control_config) for k in range(self.N_euler)]
+            self.control = [
+                MLP(**control_config).to(self.device) for k in range(self.N_euler)
+            ]
         else:
-            self.control = MLP(**control_config)
-        self.w = torch.nn.Linear(1, 1, bias=False)
+            self.control = MLP(**control_config).to(self.device)
+        self.w = torch.nn.Linear(1, 1, bias=False).to(self.device)
         # Initialize w to zero
         with torch.no_grad():
             self.w.weight.fill_(0)
@@ -74,24 +81,20 @@ class DeepHedging(DeepControledDiffusion):
                 control.eval()
         self.w.eval()
 
-    def L(
-        self, t: float, v: torch.Tensor, device: torch.device = torch.device("cpu")
-    ) -> torch.Tensor:
+    def L(self, t: float, v: torch.Tensor) -> torch.Tensor:
         """Helper function that computes L
         Args:
             - t: time
             - v: variance
-            - device: torch device
         Returns:
             - torch.Tensor: L"""
-        return v.add(self.b.to(device), alpha=-1).div(self.a.to(device)).mul(
-            1 - torch.exp(-(self.T - t) * self.a.to(device))
-        ) + (self.T - t) * self.b.to(device)
+        return v.add(self.b.to(self.device), alpha=-1).div(self.a.to(self.device)).mul(
+            1 - torch.exp(-(self.T - t) * self.a.to(self.device))
+        ) + (self.T - t) * self.b.to(self.device)
 
     def sample_traj(
         self,
         batch_size: int = 1,
-        device: torch.device = torch.device("cpu"),
         disable_tqdm: bool = False,
     ) -> torch.Tensor:
         """Samples trajectory of S, V and u
@@ -99,21 +102,26 @@ class DeepHedging(DeepControledDiffusion):
             - batch_size: number of initial conditions to sample
             - S_0: initial value of the spot
             - V_0: initial value of the variance
-            - device: torch device
             - disable_tqdm: whether or not to disable progress bar"""
         # Batchify initial conditions
-        S_0 = self.S_0.to(device) * torch.ones((batch_size, self.dim)).to(device)
-        V_0 = self.V_0.to(device) * torch.ones((batch_size, self.dim)).to(device)
+        S_0 = self.S_0.to(self.device) * torch.ones((batch_size, self.dim)).to(
+            self.device
+        )
+        V_0 = self.V_0.to(self.device) * torch.ones((batch_size, self.dim)).to(
+            self.device
+        )
         # Initialize buffers
-        V_buf = torch.zeros((batch_size, self.N_euler + 1, self.dim)).to(device)
+        V_buf = torch.zeros((batch_size, self.N_euler + 1, self.dim)).to(self.device)
         V_buf[:, 0, :] = V_0
-        S1_buf = torch.zeros((batch_size, self.N_euler + 1, self.dim)).to(device)
+        S1_buf = torch.zeros((batch_size, self.N_euler + 1, self.dim)).to(self.device)
         S1_buf[:, 0, :] = S_0
-        S2_buf = torch.zeros((batch_size, self.N_euler + 1, self.dim)).to(device)
-        S2_buf[:, 0, :] = self.L(0.0, V_0, device)
-        u_buf = torch.zeros((batch_size, self.N_euler + 1, 2 * self.dim)).to(device)
+        S2_buf = torch.zeros((batch_size, self.N_euler + 1, self.dim)).to(self.device)
+        S2_buf[:, 0, :] = self.L(0.0, V_0)
+        u_buf = torch.zeros((batch_size, self.N_euler + 1, 2 * self.dim)).to(
+            self.device
+        )
         # Initialize integral of V
-        V_int = torch.zeros_like(V_0).to(device)
+        V_int = torch.zeros_like(V_0).to(self.device)
 
         with torch.no_grad():
             # Euler scheme
@@ -140,7 +148,9 @@ class DeepHedging(DeepControledDiffusion):
                         u_buf[:, k + 1, :] = self.control(
                             torch.concat(
                                 (
-                                    k * self.h * torch.ones((batch_size, 1)).to(device),
+                                    k
+                                    * self.h
+                                    * torch.ones((batch_size, 1)).to(self.device),
                                     torch.log(S1),
                                     V,
                                     u,
@@ -179,7 +189,6 @@ class DeepHedging(DeepControledDiffusion):
     def objective(
         self,
         batch_size: int = 1,
-        device: torch.device = torch.device("cpu"),
         disable_tqdm: bool = True,
     ) -> torch.Tensor:
         """Computes the control objective J
@@ -187,23 +196,26 @@ class DeepHedging(DeepControledDiffusion):
             - batch_size: number of trajectories to sample
             - S_0: initial value of the spot
             - V_0: initial value of the variance
-            - device: torch device
             - disable_tqdm: whether to disable the progress bar or not
         Returns:
             - torch.Tensor: tensor J"""
         # Batchify initial conditions
-        S_0 = self.S_0.to(device) * torch.ones((batch_size, self.dim)).to(device)
-        V_0 = self.V_0.to(device) * torch.ones((batch_size, self.dim)).to(device)
+        S_0 = self.S_0.to(self.device) * torch.ones((batch_size, self.dim)).to(
+            self.device
+        )
+        V_0 = self.V_0.to(self.device) * torch.ones((batch_size, self.dim)).to(
+            self.device
+        )
         # Initialize buffers
         V_buf = V_0
         S1_buf = S_0
-        S2_buf = self.L(0.0, V_0, device)
-        u_buf = torch.zeros((batch_size, 2 * self.dim)).to(device)
+        S2_buf = self.L(0.0, V_0)
+        u_buf = torch.zeros((batch_size, 2 * self.dim)).to(self.device)
         # Initialize integral of V
-        V_int = torch.zeros_like(V_0).to(device)
+        V_int = torch.zeros_like(V_0).to(self.device)
         # Initialize objective terms
-        transaction_cost = torch.zeros((batch_size, 1)).to(device)
-        benefits = torch.zeros((batch_size, 1)).to(device)
+        transaction_cost = torch.zeros((batch_size, 1)).to(self.device)
+        benefits = torch.zeros((batch_size, 1)).to(self.device)
 
         # Euler scheme
         with tqdm.tqdm(
@@ -225,7 +237,9 @@ class DeepHedging(DeepControledDiffusion):
                     u = self.control(
                         torch.concat(
                             (
-                                k * self.h * torch.ones((batch_size, 1)).to(device),
+                                k
+                                * self.h
+                                * torch.ones((batch_size, 1)).to(self.device),
                                 torch.log(S1_buf),
                                 V_buf,
                                 u_buf,
@@ -286,7 +300,7 @@ class DeepHedging(DeepControledDiffusion):
         )
 
         # Compute w
-        w = self.w(torch.ones((batch_size, 1)))
+        w = self.w(torch.ones((batch_size, 1)).to(self.device))
 
         # Compute payoff
         Z = torch.sum(torch.nn.functional.relu(S1_buf - self.K), dim=1, keepdim=True)

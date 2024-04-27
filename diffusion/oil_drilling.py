@@ -24,6 +24,7 @@ class OilDrilling(DeepControledDiffusion):
         qS: float = 10.0,
         P0: torch.Tensor = 1.0 * torch.ones(1),
         U: Callable = (lambda x: x),
+        device: torch.device = torch.device("cpu"),
     ) -> None:
         super().__init__(T, N_euler, dim)
         self.mu = mu
@@ -38,10 +39,13 @@ class OilDrilling(DeepControledDiffusion):
         self.U = U
         self.c_s = lambda x: torch.exp(self.xi_s * x) - 1.0
         self.c_e = lambda x: torch.exp(self.xi_e * x)
+        self.device = device
         self.name = "Oil Drilling"
 
     def set_control(
-        self, control_config: dict, multiple_controls: bool = False
+        self,
+        control_config: dict,
+        multiple_controls: bool = False,
     ) -> None:
         """Function that sets the control
         Args:
@@ -50,9 +54,11 @@ class OilDrilling(DeepControledDiffusion):
         """
         self.multiple_controls = multiple_controls
         if multiple_controls:
-            self.control = [MLP(**control_config) for k in range(self.N_euler)]
+            self.control = [
+                MLP(**control_config).to(self.device) for k in range(self.N_euler)
+            ]
         else:
-            self.control = MLP(**control_config)
+            self.control = MLP(**control_config).to(self.device)
 
     def train_mode(self) -> None:
         """Sets the control to train mode"""
@@ -82,26 +88,32 @@ class OilDrilling(DeepControledDiffusion):
     def sample_traj(
         self,
         batch_size: int = 1,
-        device: torch.device = torch.device("cpu"),
         disable_tqdm: bool = True,
     ) -> tuple[torch.Tensor, torch.Tensor]:
         """Samples trajectory along with the corresponding control
         Args:
             - batch_size: number of trajectories to sample
-            - device: torch device
             - disable_tqdm: whether to disable the progress bar or not
         Returns:
             - tuple[torch.Tensor, torch.Tensor]: tuple containing trajectory of X and corresponding control u
         """
         with torch.no_grad():
             # Initialize buffers
-            P_buf = torch.zeros((batch_size, self.N_euler + 1, self.dim)).to(device)
-            P_buf[:, 0, :] = self.P0.to(device) * torch.ones((batch_size, self.dim)).to(
-                device
+            P_buf = torch.zeros((batch_size, self.N_euler + 1, self.dim)).to(
+                self.device
             )
-            S_buf = torch.zeros((batch_size, self.N_euler + 1, self.dim)).to(device)
-            E_buf = torch.zeros((batch_size, self.N_euler + 1, self.dim)).to(device)
-            q_buf = torch.zeros((batch_size, self.N_euler, 3 * self.dim)).to(device)
+            P_buf[:, 0, :] = self.P0.to(self.device) * torch.ones(
+                (batch_size, self.dim)
+            ).to(self.device)
+            S_buf = torch.zeros((batch_size, self.N_euler + 1, self.dim)).to(
+                self.device
+            )
+            E_buf = torch.zeros((batch_size, self.N_euler + 1, self.dim)).to(
+                self.device
+            )
+            q_buf = torch.zeros((batch_size, self.N_euler, 3 * self.dim)).to(
+                self.device
+            )
 
             # Euler scheme
             with tqdm.tqdm(
@@ -125,7 +137,9 @@ class OilDrilling(DeepControledDiffusion):
                         q_t = self.control(
                             torch.concat(
                                 (
-                                    k * self.h * torch.ones((batch_size, 1)).to(device),
+                                    k
+                                    * self.h
+                                    * torch.ones((batch_size, 1)).to(self.device),
                                     P_t,
                                     E_t,
                                     S_t,
@@ -145,7 +159,7 @@ class OilDrilling(DeepControledDiffusion):
                         (self.mu - 0.5 * self.sigma**2) * self.h
                         + self.sigma
                         * math.sqrt(self.h)
-                        * torch.randn_like(P_t).to(device)
+                        * torch.randn_like(P_t).to(self.device)
                     )
 
                     # Update progress bar
@@ -156,21 +170,21 @@ class OilDrilling(DeepControledDiffusion):
     def objective(
         self,
         batch_size: int = 1,
-        device: torch.device = torch.device("cpu"),
         disable_tqdm: bool = True,
     ) -> torch.Tensor:
         """Computes the control objective J
         Args:
             - batch_size: number of trajectories to sample
-            - device: torch device
             - disable_tqdm: whether to disable the progress bar or not
         Returns:
             - torch.Tensor: tensor J"""
         # Initialize buffers
-        P_t = self.P0.to(device) * torch.ones((batch_size, self.dim)).to(device)
-        E_t = torch.zeros((batch_size, self.dim)).to(device)
-        S_t = torch.zeros((batch_size, self.dim)).to(device)
-        J = torch.zeros((batch_size, 1)).to(device)
+        P_t = self.P0.to(self.device) * torch.ones((batch_size, self.dim)).to(
+            self.device
+        )
+        E_t = torch.zeros((batch_size, self.dim)).to(self.device)
+        S_t = torch.zeros((batch_size, self.dim)).to(self.device)
+        J = torch.zeros((batch_size, 1)).to(self.device)
 
         # Euler scheme
         with tqdm.tqdm(
@@ -190,7 +204,9 @@ class OilDrilling(DeepControledDiffusion):
                     q_t = self.control(
                         torch.concat(
                             (
-                                k * self.h * torch.ones((batch_size, 1)).to(device),
+                                k
+                                * self.h
+                                * torch.ones((batch_size, 1)).to(self.device),
                                 P_t,
                                 E_t,
                                 S_t,
@@ -215,7 +231,9 @@ class OilDrilling(DeepControledDiffusion):
                 )
                 P_t = P_t * torch.exp(
                     (self.mu - 0.5 * self.sigma**2) * self.h
-                    + self.sigma * math.sqrt(self.h) * torch.randn_like(P_t).to(device)
+                    + self.sigma
+                    * math.sqrt(self.h)
+                    * torch.randn_like(P_t).to(self.device)
                 )
 
                 # Update progress bar
