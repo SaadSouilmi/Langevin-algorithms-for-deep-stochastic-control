@@ -24,9 +24,10 @@ $$
 where $b: \mathbb{R}^{d_1} \times \mathbb{R}^{d_3} \rightarrow \mathbb{R}^{d_1}, \sigma: \mathbb{R}^{d_1} \times \mathbb{R}^{d_3} \rightarrow \mathcal{M}_{d_1, d_2}(\mathbb{R}), W$ is a $\mathbb{R}^{d_2}$-valued Brownian motion and $u$ is a $\mathbb{R}^{d_3}$-valued continuous adapted process, $T>0, G:[0, T] \times \mathbb{R}^{d_1} \rightarrow \mathbb{R}$ and $F: \mathbb{R}^{d_1} \rightarrow \mathbb{R}$.
 
 The process $\left(X_t\right)_{t \in[0, T]}$ is approximated through the Euler-Maruyama scheme, and likewise the control $u_t$ is replaced by its discrete-time counterpart. We consider the regular subdivision of $[0, T]$:
-    $$\begin{align*}
-        t_k:=k T / N, \quad k \in\{0, \ldots, N\}, \quad h:=T / N   % h est introduit mais jamais utilisé
-    \end{align*}$$ 
+
+$$
+t_k:=k T / N, \quad k \in\{0, \ldots, N\}, \quad h:=T / N   
+$$
 
 and we approximate the control applied at times $t_0, \ldots, t_{N-1}$ either as the output of a single neural network depending on $t$, or as the output of $N$ neural networks, one for each discretization instant $t_k$ :
 $$
@@ -35,28 +36,32 @@ $$
 where $\bar{u}_\theta$ is a neural function with finite-dimensional parameter $\theta \in \mathbb{R}^d$. Indeed, since $(X_t)_{t\in [0,T]}$ a Markovian process, we can assume that $u_t$ depends only on $t$ and on $X_t$ instead of $t$ and $\left(X_s\right)_{s \in[0, t]}$.
 
 The SOC problem is thus approximated by
-  $$  \begin{align}
-& \min _\theta \bar{J}\left(\bar{u}_\theta\right) := \mathbb E \left[\sum_{k=0}^{N-1}\left(t_{k+1}-t_k\right) G\left(t_{k+1}, \bar{X}_{t_{k+1}}^\theta\right)
-+ F\left(\bar{X}_{t_N}^\theta\right)\right] \\
-&\mathrm{s.t.}\quad \begin{cases}
+$$
+\min _\theta \bar{J}\left(\bar{u}_\theta\right) := \mathbb E \left[\sum_{k=0}^{N-1}\left(t_{k+1}-t_k\right) G\left(t_{k+1}, \bar{X}_{t_{k+1}}^\theta\right) + F\left(\bar{X}_{t_N}^\theta\right)\right]
+$$
+
+$$
+\mathrm{s.t.}\quad \begin{cases}
     \bar{X}_{t_{k+1}}^\theta = \bar{X}_{t_k}^\theta
     + \left(t_{k+1}-t_k\right) b\left(\bar{X}_{t_k}^\theta, \bar{u}_{k, \theta}\left(\bar{X}_{t_k}^\theta\right)\right) 
     + \sqrt{t_{k+1}-t_k} \sigma\left(\bar{X}_{t_k}^\theta, \bar{u}_{k, \theta}\left(\bar{X}_{t_k}^\theta\right)\right) \xi_{k+1} \\
     \xi_{k} \sim \mathcal{N}\left(0, I_{d_2}\right) \\
     \bar{X}_{t_0}^\theta = x_0
 \end{cases} 
-    \end{align}$$
+$$
 
 The SGD algorithm reads
-    $$\begin{align}
-        \theta_{n+1}=\theta_n-\gamma_{n+1} \frac{1}{n_{\text {batch }}} \sum_{i=1}^{n_{\text {batch }}} \nabla_\theta \bar{J}\left(\bar{u}_{\theta_n},\left(\xi_k^{i, n+1}\right)_{1 \leq k \leq N}\right)=: \theta_n-\gamma_{n+1} g_{n+1}
-    \end{align}$$
+$$
+\theta_{n+1}=\theta_n-\gamma_{n+1} \frac{1}{n_{\text {batch }}} \sum_{i=1}^{n_{\text {batch }}} \nabla_\theta \bar{J}\left(\bar{u}_{\theta_n},\left(\xi_k^{i, n+1}\right)_{1 \leq k \leq N}\right)=: \theta_n-\gamma_{n+1} g_{n+1}
+$$ 
 where $\left(\xi_k^{i, n}\right)_{1 \leq k \leq N, 1 \leq i \leq n_{\text {batch }}, n \in \mathbb{N}}$ is an array of i.i.d. $\mathcal{N}\left(0, I_{d_2}\right)$-distributed random vectors, $\left(\gamma_n\right)_{n \in \mathbb{N}}$ is a nonincreasing positive step sequence and where the dependence of $\bar{J}$ in $\left(\xi_k^{i, n}\right)$ is made explicit. 
 
 ### Adaptive Langevin optimizers
 
 We use the popular preconditioned variations of SGD Adam <sup>[1](#ref1)</sup>, RMSprop <sup>[2](#ref2)</sup>, and Adadelta <sup>[3](#ref3)</sup>. We also study an adaptively preconditionned version of SGD with momentum introduced in <sup>[4](#ref4)</sup> and a Langevin adaptation of Adagrad. Just like in the original paper, the Langevin version of an algorithm is $L-\textit{name}$, the gradient update thus reads:
-$$\begin{align}\theta_{n+1} = \theta_n - \gamma_{n+1} P_{n+1}\cdot g_{n+1} + \sigma_{n+1}\sqrt{\gamma_{n+1}} \mathcal N\left(0, P_{n+1}\right)\end{align}$$
+$$
+\theta_{n+1} = \theta_n - \gamma_{n+1} P_{n+1}\cdot g_{n+1} + \sigma_{n+1}\sqrt{\gamma_{n+1}} \mathcal N\left(0, P_{n+1}\right)
+$$
 
 Where $(P_n)_n$ is the preconditioner, $(g_n)_n$ is the gradient estimate as defined bellow, $(\gamma_n)_n$ is the learning rate schedule and $(\sigma_n)_n$ is the noise scale schedule.
 
@@ -190,13 +195,13 @@ $$
 For the parameters:
 
 $$
-\begin{align}
-& d'_1 = 5, \; T=1, \; a=1_{\mathbb{R}^5}, \;b=0.04 \times 1_{\mathbb{R}^5}, \; 
+d'_1 = 5, \; T=1, \; a=1_{\mathbb{R}^5}, \;b=0.04 \times 1_{\mathbb{R}^5}, \; 
 \eta = 2\times 1_{\mathbb{R}^5}, \; \rho = -0.7 \times 1_{\mathbb{R}^5}, \; 
-\alpha = 0.9, \\
-&s_0 = K = 1_{\mathbb{R}^5}, \; v_0 = 0.1 \times 1_{\mathbb{R}^5}, \; 
-c_{t_r} = 5e-4\times 1_{\mathbb{R}^5}.
-\end{align}
+\alpha = 0.9
+$$
+
+$$
+s_0 = K = 1_{\mathbb{R}^5}, \; v_0 = 0.1 \times 1_{\mathbb{R}^5}, \; c_{t_r} = 5e-4\times 1_{\mathbb{R}^5}.
 $$
 
 | ![Sample Trajectory Hedging](graphs/deep_hedging_graphs/Sample_traj_hedging_N50.png) |
